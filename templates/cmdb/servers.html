@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+{% block content %}
+{% include 'cmdb/modal_servers.html' %}
+
+    <div>
+         <ol class="breadcrumb">
+             <li><a href="/cmdb/dashboard/"><i class="fa fa-dashboard"></i> Home</a></li>
+             <li class="active">服务器</li>
+         </ol>
+    </div>
+
+    <div style="margin-bottom: 20px" class="col-md-12">
+        <p></p>
+        <div class="col-md-4">
+            <button id="add" class="btn btn-primary btn-sm"><span class="glyphicon glyphicon-plus"></span>新增</button>
+            <button id="btn_excel" class="btn btn-primary btn-sm"><span class="glyphicon glyphicon-plus"></span>Excel导入</button>
+        </div>
+        <div class="col-md-4">
+            <div class="input-group">
+                <input id="search" type="text" class="form-control" placeholder="主机名或IP">
+                <span class="input-group-btn">
+                    <button id="search_btn" class="btn btn-default" type="button">搜索</button>
+                </span>
+            </div>
+        </div>
+        <p></p>
+    </div>
+
+    <div>
+        <table id="idctable" class="table table-striped table-bordered table-hover dataTable no-footer">
+            <thead>
+                  <tr>
+                      <th>ID</th>
+                      <th>主机名</th>
+                      <th>所属机房</th>
+                      <th>所属机柜</th>
+                      <th>资产编号</th>
+                      <th>所属名下</th>
+                      <th>CPU</th>
+                      <th>内存(M)</th>
+                      <th>磁盘(G)</th>
+                      <th>IP</th>
+                      <th>业务线</th>
+                      <th>状态</th>
+                      <th>备注</th>
+                      <th>采集信息</th>
+                      <th>操作</th>
+                  </tr>
+            </thead>
+            <tbody id='table-content'>
+            {% for obj in paginator_data.object_list %}
+                <tr>
+                    <!--详情页展示-->
+                    <td><a href="/cmdb/servers/{{ obj.id }}">{{ obj.id }}</a></td>
+                    <td>{{ obj.name }}</td>
+                    <td>{{ obj.rack.idc.name }}</td>
+                    <td>{{ obj.rack.name }}</td>
+                    <td>{{ obj.asset_number }}</td>
+                    <td>{{ obj.under_name }}</td>
+                    <td>{{ obj.cpu }}</td>
+                    <td>{{ obj.memory }}</td>
+                    <td>{{ obj.disk }}</td>
+                    <td>{{ obj.ip }}</td>
+                    <td>{{ obj.business }}</td>
+                    <td>
+                        {% if obj.status == 0 %}
+                            <span class="label label-warning">下线</span>
+                        {% else %}
+                            <span class="label label-success">在线</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ obj.remark }}</td>
+                    <td><button class="btn btn-xs btn-info show" daq="{{ obj.daq_json }}">信息</button></td>
+                    <td>
+                        <button class="btn btn-xs btn-warning edit">编辑</button>
+                        <button class="btn btn-xs btn-danger delete">删除</button>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="yahoo2" style="margin-left:1%">
+        {% if paginator_data.has_previous %}
+            <a class='paginator' href='?page={{ paginator_data.previous_page_number }}&search={{search}}'><span>上一页</span></a>
+        {% endif %}
+
+        {% for page in paginator_data.paginator.page_range %}
+            {% if paginator_data.number == page %}
+                <span id="currentpage">{{ page }}</span>
+            {% else %}
+                <a class='paginator' href='?page={{ page }}&search={{search}}' title='{{ page }}'><span>{{ page }}</span></a>
+            {% endif %}
+        {% endfor %}
+
+        {% if paginator_data.has_next %}
+            <a class='paginator' href='?page={{ paginator_data.next_page_number }}&search={{search}}'><span>下一页</span></a>
+        {% endif %}
+    </div>
+
+    <script>
+
+        // 当点击邢增服务器时，从后端后去机柜信息，生成下拉菜单
+        $(document).ready(function() {
+            $.ajax({
+                type: 'get',
+                url: '/cmdb/api_racks/',
+                data: '',
+                dataType: 'json',
+                success: function(result){
+                    data = result.data
+                    options = ''
+                    $('#create_rack_id').empty()
+                    for (i=0; i<data.length; i++) {
+                        item = data[i]
+                        option = '<option id="' + item.id +'">' + item.name + '</option>'
+                        options += option
+                    }
+                    $('#create_rack_id').append(options)
+                    $('#create_modal').attr('select_options', options)
+                },
+            })
+        });
+
+            // 当点击邢增服务器时，从后端后去机房信息，生成下拉菜单
+            $.ajax({
+                type: 'GET',
+                url: '/cmdb/api_idcs/',
+                data: {},
+                dataType: 'json',
+                success: function(result){
+                    data = result.data
+                    for (idc of data){
+                        option = '<option id=' + idc.id + '>' + idc.name + '</option>'
+                        $('#create_idc_id').append(option)
+                    }
+                },
+                error: function() {
+                    //显示错误信息
+                },
+            })
+
+
+        /*
+        $('#create_idc_id').change(function () {
+<!--            id = $('#create_idc_id option:selected').attr('id')  // 获取选中option的属性(id)-->
+            idc_id = $('#create_idc_id option:selected').attr('id')
+            $.ajax({
+                type: 'GET',
+                url: '/cmdb/api_idcs/' + idc_id,
+                data: {},
+                dataType: 'json',
+                success: function(result){
+                    racks = result.racks.data
+                    $('#create_rack_id').empty()
+                    for (rack of racks){
+                        option = '<option id=' + rack.id + '>' + rack.name + '</option>'
+                        $('#create_rack_id').append(option)
+                    }
+                },
+                error: function() {
+                    //显示错误信息
+                },
+            })
+        });
+        */
+
+        //点击Excel导入按钮
+        $('#btn_excel').click(function () {
+            $('#ExcelModal').modal()
+        })
+        // 点击新增按钮
+        $('#add').click(function(){
+            $('#create_modal').modal()
+        });
+
+        // 发起新增提交请求
+        $('#create_btn').click(function () {
+            var rack_id = $('#create_rack_id option:selected').attr('id')
+            var idc_id = $('')
+            var name = $('#create_name').val();
+            var cpu = $('#create_cpu').val();
+            var memory = $('#create_memory').val();
+            var disk = $('#create_disk').val();
+            var ip = $('#create_ip').val();
+            var uuid = $('#create_uuid').val();
+            var business = $('#create_business').val();
+            var status = $('#create_status option:selected').attr('status_id');
+            var remark = $('#create_remark').val();
+            var asset_number = $('#create_asset').val()
+            var under_name = $('#create_under').val()
+            var data = {name:name, rack_id:rack_id, cpu:cpu, memory:memory, disk:disk, ip:ip, uuid:uuid, business:business, status:status, remark:remark, asset_number:asset_number, under_name:under_name}
+            $.ajax({
+                type: 'post',
+                url: '/cmdb/servers/',
+                data: data,
+                dataType: 'json',
+                success: function(result){
+                    status = result.status
+                    data = result.data
+                    if (status == 1) {
+                        location.reload()
+                    } else {
+                        alert(data)
+                    }
+                },
+            })
+        });
+
+        // 点击修改按钮
+        $('.edit').click(function () {
+            $('#edit_modal').modal();
+            //console.log(document.getElementById("create_idc_id").options);
+            var id = $.trim($(this).parents("tr").children("td").eq(0).text());
+            var name = $.trim($(this).parents("tr").children("td").eq(1).text());
+            var rack_name = $.trim($(this).parents("tr").children("td").eq(2).text());
+            var asset_number = $.trim($(this).parents("tr").children("td").eq(3).text());
+            var under_name = $.trim($(this).parents("tr").children("td").eq(4).text());
+            var cpu = $.trim($(this).parents("tr").children("td").eq(5).text());
+            var memory = $.trim($(this).parents("tr").children("td").eq(6).text());
+            var disk = $.trim($(this).parents("tr").children("td").eq(7).text());
+            var ip = $.trim($(this).parents("tr").children("td").eq(8).text());
+            var business = $.trim($(this).parents("tr").children("td").eq(9).text());
+            var status = $.trim($(this).parents("tr").children("td").eq(10).text());
+            var remark = $.trim($(this).parents("tr").children("td").eq(11).text());
+
+            $('#edit_id').attr('value', id)
+            $('#edit_name').attr('value', name);
+            $('#edit_asset').attr('value', Asset_number);
+            $('#edit_under').attr('value', under_name);
+            $('#edit_cpu').attr('value', cpu);
+            $('#edit_memory').attr('value', memory);
+            $('#edit_disk').attr('value', disk);
+            $('#edit_ip').attr('value', ip);
+            $('#edit_business').attr('value', business);
+            //$('#edit_status').attr('value', status);
+            $('#edit_remark').attr('value', remark);
+            rack_options = $('#create_modal').attr('select_options');
+            $('#edit_rack_id').empty();
+            $('#edit_rack_id').append(rack_options);
+            $('#edit_rack_id').attr('value', rack_name);
+            $('#edit_status').attr('value', status)
+        });
+
+        // 发起修改请求
+        $('#edit_btn').click(function () {
+            var id = $('#edit_id').val();
+            var name = $('#edit_name').val();
+            var rack_id = $('#edit_rack_id option:selected').attr('id');
+            var cpu = $('#edit_cpu').val();
+            var memory = $('#edit_memory').val();
+            var disk = $('#edit_disk').val();
+            var ip = $('#edit_ip').val();
+            var business = $('#edit_business').val();
+            var status = $('#edit_status option:selected').attr('status_id')
+            var remark = $('#edit_remark').val();
+            var data = {
+                name:name,
+                rack_id:rack_id,
+                cpu:cpu,
+                memory:memory,
+                disk:disk,
+                ip:ip,
+                business:business,
+                status:status,
+                remark:remark
+            }
+            $.ajax({
+                type: 'put',
+                url: '/cmdb/servers/' + id + '/',
+                data: data,
+                dataType: 'json',
+                success: function(result){
+                    status = result.status
+                    data = result.data
+                    if (status == 1) {
+                        location.reload()
+                    } else {
+                        alert(data)
+                    }
+                },
+            })
+        });
+
+        // 点击删除按钮，发起删除IDC请求
+        $('.delete').click(function () {
+            var id = $.trim($(this).parents("tr").children("td").eq(0).text());
+            $.ajax({
+                type: 'delete',
+                url: '/cmdb/servers/' + id + '/',
+                data: '',
+                dataType: 'json',
+                success: function(result){
+                    location.reload()
+                },
+            })
+        });
+
+        $('.show').click(function () {
+            var daq = $(this).attr('daq');
+            daq = JSON.parse(daq);
+            html = ''
+            for (i in daq) {
+                html += '<div>' + '<b>' + i + '</b>' + ': ' + daq[i] + '</div>'
+            }
+            $('#daq_modal').modal();
+            $('#daq_content').html(html)
+            var id = $.trim($(this).parents("tr").children("td").eq(0).text());
+            $('#server_id').html('(ID: '+id+')')
+        })
+
+        // 点击搜索按钮
+        $('#search_btn').click(function () {
+            var search = $('#search').val()
+            window.location.href = "/cmdb/servers/?search=" + search
+        })
+
+    </script>
+
+{% endblock %}
